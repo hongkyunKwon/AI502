@@ -14,13 +14,13 @@ from torch.utils.data.dataloader import DataLoader
 
 def mkds(args, dataset):
     fulldataset = []
-    num_data = 10000
+    num_data = 1000
     classes = dataset.classes
     class_per_data = num_data/len(classes)
     num_original = int((1 - args.rate) * class_per_data)
     num_generated = int(args.rate * class_per_data)
-    print('num of original data : ',num_original)
-    print('num of generated data : ',num_generated)
+    print('num of original data per class : ',num_original)
+    print('num of generated data per class : ',num_generated)
     for i in range(len(classes)):
         count = 0
         for j in range(len(dataset)):
@@ -66,6 +66,7 @@ def main(args):
     test_loader = DataLoader(testdataset, batch_size = 16)
     model.train()
     total_loss = []
+    testing_accuracy = []
     pbar = tqdm(range(epochs))
     for epoch in pbar:
         loss = 0
@@ -80,22 +81,30 @@ def main(args):
             loss = loss + train_loss
         pbar.set_description(f'Train Epoch: {epoch}/{epochs} Loss : {loss:.6f}')
         total_loss.append(loss.cpu().detach().numpy())
-    plt.plot(total_loss)
-    plt.show()
-    model.eval()
-    test_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for data, target in test_loader:
-            data = data.to(device)
-            target = target.to(device)
-            output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
-            pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
-            correct += pred.eq(target.data.view_as(pred)).sum().item()
-        test_loss /= len(test_loader.dataset)
-        accuracy = 100. * correct / len(test_loader.dataset)
-    print('accuracy : ', accuracy)
+        model.eval()
+        test_loss = 0
+        correct = 0
+        with torch.no_grad():
+            for data, target in test_loader:
+                data = data.to(device)
+                target = target.to(device)
+                output = model(data)
+                test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
+                pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+                correct += pred.eq(target.data.view_as(pred)).sum().item()
+            test_loss /= len(test_loader.dataset)
+            accuracy = 100. * correct / len(test_loader.dataset)
+            testing_accuracy.append(accuracy)
+    plt.plot(total_loss, color = '#1f77b4')
+    plt.xlabel('epochs')
+    plt.ylabel('loss')
+    plt.savefig(f'./result/{args.dataset}-{args.rate}-training_loss.png', format='png')
+    plt.clf()
+    plt.plot(testing_accuracy, color = '#ff7f0e')
+    plt.xlabel('epochs')
+    plt.ylabel('accuracy')
+    plt.ylim([0,100])
+    plt.savefig(f'./result/{args.dataset}-{args.rate}-testing_accuracy.png', format='png')    
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
